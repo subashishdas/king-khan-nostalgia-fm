@@ -215,6 +215,7 @@ function DesktopPlayer({
   isPlaying,
   progress,
   elapsed,
+  duration,
   onSeek,
   onPrev,
   onPlayPause,
@@ -224,6 +225,7 @@ function DesktopPlayer({
   isPlaying: boolean;
   progress: number;
   elapsed: number;
+  duration: number;
   onSeek: (frac: number) => void;
   onPrev: () => void;
   onPlayPause: () => void;
@@ -261,7 +263,7 @@ function DesktopPlayer({
         <div className="flex items-center gap-2.5">
           <SeekBar progress={progress} onSeek={onSeek} />
           <span className="flex-shrink-0 text-[10.5px] tabular-nums text-white/45 md:text-xs">
-            {formatTime(elapsed)} / {formatTime(track.duration)}
+            {formatTime(elapsed)} / {formatTime(duration)}
           </span>
         </div>
       </div>
@@ -275,6 +277,7 @@ function MobilePlayer({
   isPlaying,
   progress,
   elapsed,
+  duration,
   onSeek,
   onPrev,
   onPlayPause,
@@ -284,6 +287,7 @@ function MobilePlayer({
   isPlaying: boolean;
   progress: number;
   elapsed: number;
+  duration: number;
   onSeek: (frac: number) => void;
   onPrev: () => void;
   onPlayPause: () => void;
@@ -315,7 +319,7 @@ function MobilePlayer({
         <SeekBar progress={progress} onSeek={onSeek} />
         <div className="flex items-center justify-between text-[10.5px] tabular-nums text-white/45">
           <span>{formatTime(elapsed)}</span>
-          <span>{formatTime(track.duration)}</span>
+          <span>{formatTime(duration)}</span>
         </div>
       </div>
 
@@ -383,6 +387,8 @@ export default function PlayerClient() {
   const currentTrack = currentPlaylist.tracks[trackIndex];
   const { setCurrentTrack } = useTrack();
 
+  const [duration, setDuration] = useState(currentTrack.duration);
+
   /* ── Load YouTube IFrame API ─────────────────────────────────────── */
   useEffect(() => {
     if (document.getElementById("yt-api-script")) return;
@@ -443,6 +449,7 @@ export default function PlayerClient() {
   /* ── Initialize player on first render ──────────────────────────── */
   useEffect(() => {
     setCurrentTrack(currentTrack);
+    setDuration(currentTrack.duration);
     if (apiReady.current) {
       createPlayer(currentTrack.videoId);
     } else {
@@ -456,6 +463,7 @@ export default function PlayerClient() {
   /* ── Handle track / playlist changes ─────────────────────────────── */
   useEffect(() => {
     setCurrentTrack(currentTrack);
+    setDuration(currentTrack.duration);
     if (!playerRef.current) return;
     try {
       playerRef.current.loadVideoById(currentTrack.videoId);
@@ -473,9 +481,15 @@ export default function PlayerClient() {
   const handleStateChange = useCallback((event: any) => {
     const state = event.data;
     if (state === 1) {
-      // PLAYING — reset error counter, this track works
+      // PLAYING — reset error counter, grab real YouTube video duration
       consecutiveErrors.current = 0;
       setIsPlaying(true);
+      try {
+        const realDur = playerRef.current?.getDuration?.();
+        if (realDur && realDur > 0) {
+          setDuration(realDur);
+        }
+      } catch { /* ignore */ }
     } else if (state === 2) {
       setIsPlaying(false);
     } else if (state === 0) {
@@ -519,9 +533,12 @@ export default function PlayerClient() {
       progressTimer.current = setInterval(() => {
         try {
           const current = playerRef.current?.getCurrentTime?.() ?? 0;
-          const duration = playerRef.current?.getDuration?.() ?? currentTrack.duration;
+          const realDur = playerRef.current?.getDuration?.() ?? duration;
+          if (realDur > 0 && realDur !== duration) {
+            setDuration(realDur);
+          }
           setElapsed(current);
-          setProgress(duration > 0 ? current / duration : 0);
+          setProgress(realDur > 0 ? current / realDur : 0);
         } catch { /* player not ready */ }
       }, 400);
     }
@@ -529,7 +546,7 @@ export default function PlayerClient() {
     return () => {
       if (progressTimer.current) clearInterval(progressTimer.current);
     };
-  }, [isPlaying, currentTrack.duration]);
+  }, [isPlaying, duration]);
 
   /* ── Transport handlers (Random / History) ───────────────────────── */
   const getRandomTrackIndex = useCallback(
@@ -615,6 +632,7 @@ export default function PlayerClient() {
             isPlaying={isPlaying}
             progress={progress}
             elapsed={elapsed}
+            duration={duration}
             onSeek={handleSeek}
             onPrev={prevTrack}
             onPlayPause={togglePlayPause}
@@ -629,6 +647,7 @@ export default function PlayerClient() {
             isPlaying={isPlaying}
             progress={progress}
             elapsed={elapsed}
+            duration={duration}
             onSeek={handleSeek}
             onPrev={prevTrack}
             onPlayPause={togglePlayPause}
