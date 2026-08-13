@@ -389,6 +389,55 @@ export default function PlayerClient() {
 
   const [duration, setDuration] = useState(currentTrack.duration);
 
+  /* ── State change handler ────────────────────────────────────────── */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleStateChange = useCallback((event: any) => {
+    const state = event.data;
+    if (state === 1) {
+      // PLAYING — reset error counter, grab real YouTube video duration
+      consecutiveErrors.current = 0;
+      setIsPlaying(true);
+      try {
+        const realDur = playerRef.current?.getDuration?.();
+        if (realDur && realDur > 0) {
+          setDuration(realDur);
+        }
+      } catch { /* ignore */ }
+    } else if (state === 2) {
+      setIsPlaying(false);
+    } else if (state === 0) {
+      setIsPlaying(false);
+      consecutiveErrors.current = 0;
+      nextTrackRef.current();
+    }
+  }, []);
+
+  /* ── Error handler (debounced, capped at 3 consecutive) ──────────── */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleError = useCallback((event: any) => {
+    console.warn(`YouTube error ${event.data} for video ${currentTrack.videoId}`);
+    try {
+      vaTrack("youtube_error", {
+        code: String(event.data),
+        videoId: currentTrack.videoId,
+      });
+    } catch { /* analytics not loaded yet */ }
+
+    // Stop auto-skipping after 3 consecutive errors
+    consecutiveErrors.current += 1;
+    if (consecutiveErrors.current > 3) {
+      console.warn("Too many consecutive errors — stopping auto-skip.");
+      return;
+    }
+
+    // Debounce: wait 1.5s before skipping to avoid rapid chain-skipping
+    if (errorSkipTimer.current) clearTimeout(errorSkipTimer.current);
+    errorSkipTimer.current = setTimeout(() => {
+      nextTrackRef.current();
+    }, 1500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack.videoId]);
+
   /* ── Load YouTube IFrame API ─────────────────────────────────────── */
   useEffect(() => {
     if (document.getElementById("yt-api-script")) return;
@@ -444,7 +493,7 @@ export default function PlayerClient() {
         onError: handleError,
       },
     });
-  }, []);
+  }, [handleError, handleStateChange]);
 
   /* ── Initialize player on first render ──────────────────────────── */
   useEffect(() => {
@@ -458,6 +507,7 @@ export default function PlayerClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const unplayedQueue = useRef<number[]>([]);
   const historyStack = useRef<number[]>([]);
 
   /* ── Handle track / playlist changes ─────────────────────────────── */
@@ -475,55 +525,6 @@ export default function PlayerClient() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlistIndex, trackIndex]);
-
-  /* ── State change handler ────────────────────────────────────────── */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleStateChange = useCallback((event: any) => {
-    const state = event.data;
-    if (state === 1) {
-      // PLAYING — reset error counter, grab real YouTube video duration
-      consecutiveErrors.current = 0;
-      setIsPlaying(true);
-      try {
-        const realDur = playerRef.current?.getDuration?.();
-        if (realDur && realDur > 0) {
-          setDuration(realDur);
-        }
-      } catch { /* ignore */ }
-    } else if (state === 2) {
-      setIsPlaying(false);
-    } else if (state === 0) {
-      setIsPlaying(false);
-      consecutiveErrors.current = 0;
-      nextTrackRef.current();
-    }
-  }, []);
-
-  /* ── Error handler (debounced, capped at 3 consecutive) ──────────── */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleError = useCallback((event: any) => {
-    console.warn(`YouTube error ${event.data} for video ${currentTrack.videoId}`);
-    try {
-      vaTrack("youtube_error", {
-        code: String(event.data),
-        videoId: currentTrack.videoId,
-      });
-    } catch { /* analytics not loaded yet */ }
-
-    // Stop auto-skipping after 3 consecutive errors
-    consecutiveErrors.current += 1;
-    if (consecutiveErrors.current > 3) {
-      console.warn("Too many consecutive errors — stopping auto-skip.");
-      return;
-    }
-
-    // Debounce: wait 1.5s before skipping to avoid rapid chain-skipping
-    if (errorSkipTimer.current) clearTimeout(errorSkipTimer.current);
-    errorSkipTimer.current = setTimeout(() => {
-      nextTrackRef.current();
-    }, 1500);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTrack.videoId]);
 
   /* ── Progress ticker ─────────────────────────────────────────────── */
   useEffect(() => {
@@ -548,28 +549,36 @@ export default function PlayerClient() {
     };
   }, [isPlaying, duration]);
 
-  /* ── Transport handlers (Random / History) ───────────────────────── */
-  const getRandomTrackIndex = useCallback(
-    (currentIndex: number, total: number) => {
-      if (total <= 1) return 0;
-      let nextIndex = currentIndex;
-      while (nextIndex === currentIndex) {
-        nextIndex = Math.floor(Math.random() * total);
+  /* ── Shuffle Deck (No repeats until all tracks played) ───────────── */
+  const getNextUnplayedIndex = useCallback((currentIndex: number, total: number) => {
+    if (total <= 1) return 0;
+    if (unplayedQueue.current.length === 0) {
+      // Create a new shuffled deck of all track indices [0..total-1]
+      const deck = Array.from({ length: total }, (_, i) => i);
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
       }
-      return nextIndex;
-    },
-    []
-  );
+      // Ensure the first track in the new deck isn't identical to the current track
+      if (deck[deck.length - 1] === currentIndex && deck.length > 1) {
+        const swapIdx = Math.floor(Math.random() * (deck.length - 1));
+        [deck[deck.length - 1], deck[swapIdx]] = [deck[swapIdx], deck[deck.length - 1]];
+      }
+      unplayedQueue.current = deck;
+    }
+    return unplayedQueue.current.pop()!;
+  }, []);
 
+  /* ── Transport handlers (Shuffle Deck / History) ─────────────────── */
   const nextTrack = useCallback(() => {
     consecutiveErrors.current = 0;
     if (errorSkipTimer.current) clearTimeout(errorSkipTimer.current);
 
     setTrackIndex((prev) => {
       historyStack.current.push(prev);
-      return getRandomTrackIndex(prev, currentPlaylist.tracks.length);
+      return getNextUnplayedIndex(prev, currentPlaylist.tracks.length);
     });
-  }, [currentPlaylist.tracks.length, getRandomTrackIndex]);
+  }, [currentPlaylist.tracks.length, getNextUnplayedIndex]);
 
   const prevTrack = useCallback(() => {
     consecutiveErrors.current = 0;
@@ -579,9 +588,9 @@ export default function PlayerClient() {
       const lastIndex = historyStack.current.pop()!;
       setTrackIndex(lastIndex);
     } else {
-      setTrackIndex((prev) => getRandomTrackIndex(prev, currentPlaylist.tracks.length));
+      setTrackIndex((prev) => getNextUnplayedIndex(prev, currentPlaylist.tracks.length));
     }
-  }, [currentPlaylist.tracks.length, getRandomTrackIndex]);
+  }, [currentPlaylist.tracks.length, getNextUnplayedIndex]);
 
   const nextTrackRef = useRef(nextTrack);
   nextTrackRef.current = nextTrack;
@@ -613,6 +622,7 @@ export default function PlayerClient() {
 
   const switchPlaylist = useCallback((i: number) => {
     historyStack.current = [];
+    unplayedQueue.current = [];
     setPlaylistIndex(i);
     setTrackIndex(0);
     setElapsed(0);
