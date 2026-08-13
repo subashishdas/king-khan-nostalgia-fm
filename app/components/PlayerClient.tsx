@@ -605,7 +605,7 @@ export default function PlayerClient() {
   /* ── Render ──────────────────────────────────────────────────────── */
   return (
     <>
-      <div className="mx-auto flex w-full max-w-xs sm:max-w-md md:max-w-xl lg:max-w-2xl flex-col items-center gap-2.5">
+      <div className="flex w-full flex-col items-center gap-2 sm:gap-2.5">
         <PlaylistSwitcher activeIndex={playlistIndex} onSwitch={switchPlaylist} />
 
         {/* Desktop player */}

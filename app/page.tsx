@@ -8,7 +8,7 @@ const GRAIN_SVG = `data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http:/
 
 export default function Home() {
   return (
-    <main className="relative flex min-h-dvh flex-1 flex-col items-center justify-between overflow-hidden">
+    <main className="relative flex min-h-dvh flex-col items-center justify-between overflow-x-hidden">
       {/* ── 1. Fixed Background ───────────────────────────────────── */}
       <div className="hero-bg fixed inset-0 -z-20" />
       {/* Gradient overlay */}
@@ -25,7 +25,7 @@ export default function Home() {
         }}
       />
 
-      {/* ── 3. Fixed Top Row ──────────────────────────────────────── */}
+      {/* ── 3. Top Row ────────────────────────────────────────────── */}
       <header className="safe-top safe-x z-10 flex w-full max-w-5xl items-center justify-between gap-2 px-3 py-3 sm:px-6 sm:py-5">
         {/* Top-left: Clock */}
         <div className="flex-shrink-0">
@@ -46,9 +46,11 @@ export default function Home() {
       {/* ── Spacer ────────────────────────────────────────────────── */}
       <div className="flex-1" />
 
-      {/* ── 4. Player (bottom-anchored) ───────────────────────────── */}
-      <footer className="safe-bottom safe-x z-10 flex w-full justify-center px-3 pb-4 sm:px-6 sm:pb-8">
-        <PlayerClient />
+      {/* ── 4. Fixed Player (always visible at bottom on all screens) ── */}
+      <footer className="fixed bottom-0 inset-x-0 safe-bottom z-20 flex w-full justify-center px-3 pb-3 sm:px-6 sm:pb-6 pointer-events-none">
+        <div className="pointer-events-auto w-full max-w-xs sm:max-w-md md:max-w-xl lg:max-w-2xl">
+          <PlayerClient />
+        </div>
       </footer>
     </main>
   );
