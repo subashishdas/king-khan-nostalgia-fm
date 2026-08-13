@@ -1,16 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { TrackProvider } from "@/app/context/TrackContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nostalgia FM — Lofi & Chill Music",
+  title: "Nostalgia FM — SRK Era Music",
   description:
-    "A curated listening experience. Lofi beats, Bollywood nostalgia, and late-night vibes — all in one place.",
-  keywords: ["lofi", "music", "nostalgia", "chill", "radio", "ambient"],
+    "A curated listening experience. Bollywood SRK nostalgia and late-night vibes — all in one place.",
+  keywords: ["srk", "bollywood", "nostalgia", "music", "radio", "ambient"],
   openGraph: {
-    title: "Nostalgia FM",
-    description: "Curated lofi & chill music for late nights.",
+    title: "Nostalgia FM — The Classic SRK Era",
+    description: "Curated Bollywood SRK music for late-night nostalgia.",
     type: "website",
   },
 };
@@ -30,9 +31,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
-        <Analytics />
-        <SpeedInsights />
+        <TrackProvider>
+          {children}
+          <Analytics />
+          <SpeedInsights />
+        </TrackProvider>
       </body>
     </html>
   );

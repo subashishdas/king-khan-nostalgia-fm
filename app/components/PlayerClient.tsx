@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { track as vaTrack } from "@vercel/analytics";
 import { playlists, type Track } from "@/app/data/tracks";
+import { useTrack } from "@/app/context/TrackContext";
 
 /* ─── Augment Window for YouTube callback ──────────────────────────── */
 declare global {
@@ -380,6 +381,7 @@ export default function PlayerClient() {
 
   const currentPlaylist = playlists[playlistIndex];
   const currentTrack = currentPlaylist.tracks[trackIndex];
+  const { setCurrentTrack } = useTrack();
 
   /* ── Load YouTube IFrame API ─────────────────────────────────────── */
   useEffect(() => {
@@ -440,6 +442,7 @@ export default function PlayerClient() {
 
   /* ── Initialize player on first render ──────────────────────────── */
   useEffect(() => {
+    setCurrentTrack(currentTrack);
     if (apiReady.current) {
       createPlayer(currentTrack.videoId);
     } else {
@@ -452,6 +455,7 @@ export default function PlayerClient() {
 
   /* ── Handle track / playlist changes ─────────────────────────────── */
   useEffect(() => {
+    setCurrentTrack(currentTrack);
     if (!playerRef.current) return;
     try {
       playerRef.current.loadVideoById(currentTrack.videoId);

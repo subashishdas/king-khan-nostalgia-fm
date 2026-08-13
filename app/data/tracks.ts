@@ -15,8 +15,7 @@ export interface Playlist {
 
 // ── 1990s — The Classic SRK Era ────────────────────────────────────
 const classicSRK: Track[] = [
-  { id: 1, title: "Tu Hi Meri Shab Hai", artist: "Shah Rukh Khan", film: "Baazigar", year: 2000, duration: 300, videoId: "mWBvudKcByg" },
-  { id: 2, title: "Baazigar O Baazigar", artist: "Shah Rukh Khan", film: "Baazigar", year: 2000, duration: 300, videoId: "PUO7_Gi6ipg" },
+  { id: 2, title: "Baazigar O Baazigar", artist: "Kumar Sanu, Alka Yagnik", film: "Baazigar", year: 1993, duration: 450, videoId: "PUO7_Gi6ipg" },
   { id: 3, title: "Ye Kaali Kaali Aankhen", artist: "Shah Rukh Khan", film: "Baazigar", year: 2000, duration: 300, videoId: "IhKXq5dhTag" },
   { id: 4, title: "Kitaben Bahut Si", artist: "Shah Rukh Khan", film: "Baazigar", year: 2000, duration: 300, videoId: "708MrJ6ZJsI" },
   { id: 5, title: "Jaadu Teri Nazar", artist: "Shah Rukh Khan", film: "Darr", year: 2000, duration: 300, videoId: "n_oP9Onj0r0" },
